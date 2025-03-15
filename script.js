@@ -1,63 +1,123 @@
-document.addEventListener("DOMContentLoaded", function () {
-    const chatBox = document.querySelector(".chat-box");
-    const emailInput = document.getElementById("email");
-    const commentInput = document.getElementById("comment");
-    const addButton = document.querySelector("button");
+const GIPHY_API_KEY = "ouX22sPmm2Jrck0XOh5EvUdXEgrOkWPa";
+let offset = 0;
+let gifs = [];
+let selectedGifUrl = "";
 
-    let storedChat = localStorage.getItem("chat");
-    let messages = [];
+// Open and close the GIF modal
+document.getElementById("openGifModal").addEventListener("click", () => {
+    document.getElementById("gif-modal").style.display = "block";
+});
 
-    try {
-        messages = storedChat ? JSON.parse(storedChat) : [];
-    } catch (error) {
-        console.error("Invalid JSON in localStorage. Resetting chat history.");
-        localStorage.removeItem("chat");
+document.getElementById("closeGifModal").addEventListener("click", () => {
+    document.getElementById("gif-modal").style.display = "none";
+});
+
+// Handle GIF search and navigation
+document.getElementById("gifSearchBtn").addEventListener("click", fetchGifs);
+document.getElementById("prevGif").addEventListener("click", () => {
+    if (offset > 0) {
+        offset -= 1;
+        updateGifDisplay();
     }
-
-    function getGravatarUrl(email) {
-        const emailHash = md5(email.trim().toLowerCase());
-        return `https://www.gravatar.com/avatar/${emailHash}?s=50&d=identicon`;
+});
+document.getElementById("nextGif").addEventListener("click", () => {
+    if (offset < gifs.length - 1) {
+        offset += 1;
+        updateGifDisplay();
     }
+});
 
-    function displayMessages() {
-        chatBox.innerHTML = ""; // Clear the chat box before reloading messages
-        messages.forEach(msg => {
-            const messageDiv = document.createElement("div");
-            messageDiv.classList.add("message");
-
-            // Create Gravatar Image
-            const gravatarImg = document.createElement("img");
-            gravatarImg.src = getGravatarUrl(msg.email);
-            gravatarImg.classList.add("avatar");
-            gravatarImg.alt = "User Avatar";
-
-            // Create message content (ONLY text, no name)
-            const messageContent = document.createElement("div");
-            messageContent.classList.add("message-content");
-            messageContent.textContent = msg.text; // Show only text
-
-            messageDiv.appendChild(gravatarImg);
-            messageDiv.appendChild(messageContent);
-            chatBox.appendChild(messageDiv);
-        });
+document.getElementById("submitGif").addEventListener("click", () => {
+    if (selectedGifUrl) {
+        addMessage(selectedGifUrl, true);
+        document.getElementById("gif-modal").style.display = "none";
     }
+});
 
-    function addComment() {
-        const email = emailInput.value.trim();
-        const comment = commentInput.value.trim();
+// Save user email and comment in localStorage
+const emailInput = document.getElementById("email");
+const commentInput = document.getElementById("comment");
 
-        if (email && comment) {
-            const newMessage = { email, text: comment };
-            messages.push(newMessage); // Store as object
+emailInput.addEventListener("input", () => {
+    localStorage.setItem("email", emailInput.value);
+});
 
-            localStorage.setItem("chat", JSON.stringify(messages)); // Save structured data
-            displayMessages(); // Refresh chat box
+commentInput.addEventListener("input", () => {
+    localStorage.setItem("comment", commentInput.value);
+});
 
-            // Clear inputs
-            commentInput.value = "";
-        }
+// Fetch GIFs from Giphy API
+async function fetchGifs() {
+    const searchTerm = document.getElementById("gifSearchInput").value;
+    if (!searchTerm) return;
+
+    const res = await fetch(
+        `https://api.giphy.com/v1/gifs/search?q=${searchTerm}&api_key=${GIPHY_API_KEY}&limit=5`
+    );
+    const { data } = await res.json();
+
+    gifs = data;
+    offset = 0;
+    updateGifDisplay();
+}
+
+// Display the selected GIF
+function updateGifDisplay() {
+    if (gifs.length > 0) {
+        selectedGifUrl = gifs[offset].images.fixed_height.url;
+        document.getElementById("gifContainer").innerHTML = `<img src="${selectedGifUrl}" alt="GIF">`;
     }
+}
 
-    addButton.addEventListener("click", addComment);
-    displayMessages(); // Load messages on page load
+// Add a text or GIF message to the chat box
+function addMessage(content, isGif) {
+    const email = emailInput.value.trim();
+    if (!email) return;
+
+    const messageDiv = document.createElement("div");
+    messageDiv.classList.add("message");
+
+    const gravatarImg = document.createElement("img");
+    gravatarImg.src = `https://www.gravatar.com/avatar/${md5(email.toLowerCase())}?s=50&d=identicon`;
+    gravatarImg.classList.add("avatar");
+
+    const messageContent = document.createElement("div");
+    messageContent.classList.add("message-content");
+    messageContent.innerHTML = isGif ? `<img src="${content}" alt="GIF">` : content;
+
+    messageDiv.appendChild(gravatarImg);
+    messageDiv.appendChild(messageContent);
+    document.querySelector(".chat-box").appendChild(messageDiv);
+    document.querySelector(".chat-box").scrollTop = document.querySelector(".chat-box").scrollHeight;
+
+    // Save messages in localStorage
+    let messages = JSON.parse(localStorage.getItem("chatMessages")) || [];
+    messages.push({ email, content, isGif });
+    localStorage.setItem("chatMessages", JSON.stringify(messages));
+}
+
+// Load stored chat messages and form inputs when the page loads
+function loadChatData() {
+    let messages = JSON.parse(localStorage.getItem("chatMessages")) || [];
+    messages.forEach(({ email, content, isGif }) => addMessage(content, isGif));
+
+    if (localStorage.getItem("email")) {
+        emailInput.value = localStorage.getItem("email");
+    }
+    if (localStorage.getItem("comment")) {
+        commentInput.value = localStorage.getItem("comment");
+    }
+}
+
+document.addEventListener("DOMContentLoaded", loadChatData);
+
+// Handle adding a new text message
+document.getElementById("addComment").addEventListener("click", () => {
+    const email = emailInput.value.trim();
+    const comment = commentInput.value.trim();
+    if (email && comment) {
+        addMessage(comment, false);
+        commentInput.value = "";
+        localStorage.setItem("comment", ""); // Clear saved comment
+    }
 });
