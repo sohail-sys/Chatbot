@@ -21,7 +21,7 @@ h1 {
 }
 
 .chat-box {
-    width: 96%;
+    width: 94%;
     height: 300px;
     background: #f9f9f9;
     border: 1px solid #ccc;
@@ -88,6 +88,7 @@ button:hover {
 .message-content {
     padding: 8px;
     border-radius: 5px;
+    font-size: 12px;
 }
 .message-content {
     background: #f1f1f1;
@@ -166,3 +167,82 @@ button:hover {
 #submitGif:hover {
     background-color: darkblue; 
 }
+
+
+
+.context-menu {
+    display: none;
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    border-radius: 5px;
+    z-index: 1000;
+}
+
+.context-menu button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px 10px;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+}
+
+.context-menu button:hover {
+    background: #f0f0f0;
+}
+
+
+
+
+
+
+
+.message {
+    display: flex;
+    justify-content: flex-start;
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 8px;
+    max-width: 80%;
+}
+
+.message-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.message-content {
+    flex: 1;
+    word-wrap: break-word;
+}
+
+.message-content img {
+    max-width: 200px;
+    border-radius: 5px;
+}
+
+.delete-btn {
+    background: none;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    color: red;
+    margin-left: 2px;
+    transition: color 0.3s;
+    width: auto;
+}
+
+.delete-btn:hover {
+    color: darkred;
+     }

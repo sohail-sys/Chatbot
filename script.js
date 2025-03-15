@@ -1,123 +1,117 @@
+document.addEventListener("DOMContentLoaded", () => {
+    loadChatData();
+    setupTypingIndicator();
+    setupEventListeners();
+});
+
 const GIPHY_API_KEY = "ouX22sPmm2Jrck0XOh5EvUdXEgrOkWPa";
-let offset = 0;
-let gifs = [];
-let selectedGifUrl = "";
-
-// Open and close the GIF modal
-document.getElementById("openGifModal").addEventListener("click", () => {
-    document.getElementById("gif-modal").style.display = "block";
-});
-
-document.getElementById("closeGifModal").addEventListener("click", () => {
-    document.getElementById("gif-modal").style.display = "none";
-});
-
-// Handle GIF search and navigation
-document.getElementById("gifSearchBtn").addEventListener("click", fetchGifs);
-document.getElementById("prevGif").addEventListener("click", () => {
-    if (offset > 0) {
-        offset -= 1;
-        updateGifDisplay();
-    }
-});
-document.getElementById("nextGif").addEventListener("click", () => {
-    if (offset < gifs.length - 1) {
-        offset += 1;
-        updateGifDisplay();
-    }
-});
-
-document.getElementById("submitGif").addEventListener("click", () => {
-    if (selectedGifUrl) {
-        addMessage(selectedGifUrl, true);
-        document.getElementById("gif-modal").style.display = "none";
-    }
-});
-
-// Save user email and comment in localStorage
+let offset = 0, gifs = [], selectedGifUrl = "";
 const emailInput = document.getElementById("email");
 const commentInput = document.getElementById("comment");
+const chatBox = document.querySelector(".chat-box");
 
-emailInput.addEventListener("input", () => {
-    localStorage.setItem("email", emailInput.value);
-});
+// Sets up a typing indicator that appears when the user types a comment
+function setupTypingIndicator() {
+    const typingIndicator = document.createElement("div");
+    typingIndicator.id = "typingIndicator";
+    typingIndicator.textContent = "User is typing...";
+    Object.assign(typingIndicator.style, { display: "none", fontStyle: "italic", color: "gray", fontSize: "12px" });
+    chatBox.appendChild(typingIndicator);
 
-commentInput.addEventListener("input", () => {
-    localStorage.setItem("comment", commentInput.value);
-});
+    commentInput.addEventListener("input", () => {
+        typingIndicator.style.display = commentInput.value.trim() ? "block" : "none";
+    });
+}
 
-// Fetch GIFs from Giphy API
+// Attaches event listeners to different buttons and inputs
+function setupEventListeners() {
+    document.getElementById("openGifModal").addEventListener("click", () => toggleModal("gif-modal", true));
+    document.getElementById("closeGifModal").addEventListener("click", () => toggleModal("gif-modal", false));
+    document.getElementById("gifSearchBtn").addEventListener("click", fetchGifs);
+    document.getElementById("prevGif").addEventListener("click", () => navigateGif(-1));
+    document.getElementById("nextGif").addEventListener("click", () => navigateGif(1));
+    document.getElementById("submitGif").addEventListener("click", () => { if (selectedGifUrl) addMessage(selectedGifUrl, true); toggleModal("gif-modal", false); });
+    document.getElementById("addComment").addEventListener("click", submitComment);
+    emailInput.addEventListener("input", () => localStorage.setItem("email", emailInput.value));
+    commentInput.addEventListener("input", () => localStorage.setItem("comment", commentInput.value));
+}
+
+// Fetches GIFs from Giphy API based on user search input
 async function fetchGifs() {
     const searchTerm = document.getElementById("gifSearchInput").value;
     if (!searchTerm) return;
-
-    const res = await fetch(
-        `https://api.giphy.com/v1/gifs/search?q=${searchTerm}&api_key=${GIPHY_API_KEY}&limit=5`
-    );
-    const { data } = await res.json();
-
-    gifs = data;
+    const res = await fetch(`https://api.giphy.com/v1/gifs/search?q=${searchTerm}&api_key=${GIPHY_API_KEY}&limit=5`);
+    gifs = (await res.json()).data;
     offset = 0;
     updateGifDisplay();
 }
 
-// Display the selected GIF
+// Navigates through fetched GIFs
+function navigateGif(direction) {
+    offset = Math.max(0, Math.min(offset + direction, gifs.length - 1));
+    updateGifDisplay();
+}
+
+// Updates the displayed GIF in the modal
 function updateGifDisplay() {
-    if (gifs.length > 0) {
+    if (gifs.length) {
         selectedGifUrl = gifs[offset].images.fixed_height.url;
         document.getElementById("gifContainer").innerHTML = `<img src="${selectedGifUrl}" alt="GIF">`;
     }
 }
 
-// Add a text or GIF message to the chat box
-function addMessage(content, isGif) {
-    const email = emailInput.value.trim();
-    if (!email) return;
-
+// Adds a new message (text or GIF) to the chat
+function addMessage(content, isGif, isNew = true) {
+    if (!emailInput.value.trim()) return;
     const messageDiv = document.createElement("div");
     messageDiv.classList.add("message");
+    messageDiv.innerHTML = `
+        <div class="message-wrapper">
+            <img src="https://www.gravatar.com/avatar/${md5(emailInput.value.toLowerCase())}?s=50&d=identicon" class="avatar">
+            <div class="message-content">${isGif ? `<img src="${content}" alt="GIF">` : content}</div>
+            <button class="delete-btn">🗑️</button>
+        </div>`;
+    
+    // Attach delete event to remove the message when clicked
+    messageDiv.querySelector(".delete-btn").addEventListener("click", () => deleteMessage(messageDiv, content, isGif));
+    chatBox.appendChild(messageDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    document.getElementById("typingIndicator").style.display = "none";
+    
+    // Save message to local storage if it's new
+    if (isNew) {
+        let messages = JSON.parse(localStorage.getItem("chatMessages")) || [];
+        messages.push({ email: emailInput.value, content, isGif });
+        localStorage.setItem("chatMessages", JSON.stringify(messages));
+    }
+}
 
-    const gravatarImg = document.createElement("img");
-    gravatarImg.src = `https://www.gravatar.com/avatar/${md5(email.toLowerCase())}?s=50&d=identicon`;
-    gravatarImg.classList.add("avatar");
-
-    const messageContent = document.createElement("div");
-    messageContent.classList.add("message-content");
-    messageContent.innerHTML = isGif ? `<img src="${content}" alt="GIF">` : content;
-
-    messageDiv.appendChild(gravatarImg);
-    messageDiv.appendChild(messageContent);
-    document.querySelector(".chat-box").appendChild(messageDiv);
-    document.querySelector(".chat-box").scrollTop = document.querySelector(".chat-box").scrollHeight;
-
-    // Save messages in localStorage
+// Deletes a message from chat and removes it from local storage
+function deleteMessage(element, content, isGif) {
     let messages = JSON.parse(localStorage.getItem("chatMessages")) || [];
-    messages.push({ email, content, isGif });
+    messages = messages.filter(msg => msg.content !== content || msg.isGif !== isGif);
     localStorage.setItem("chatMessages", JSON.stringify(messages));
+    element.remove();
 }
 
-// Load stored chat messages and form inputs when the page loads
+// Loads chat messages from local storage on page load
 function loadChatData() {
-    let messages = JSON.parse(localStorage.getItem("chatMessages")) || [];
-    messages.forEach(({ email, content, isGif }) => addMessage(content, isGif));
+    JSON.parse(localStorage.getItem("chatMessages"))?.forEach(({ content, isGif }) => addMessage(content, isGif, false));
+    emailInput.value = localStorage.getItem("email") || "";
+    commentInput.value = localStorage.getItem("comment") || "";
+}
 
-    if (localStorage.getItem("email")) {
-        emailInput.value = localStorage.getItem("email");
-    }
-    if (localStorage.getItem("comment")) {
-        commentInput.value = localStorage.getItem("comment");
+// Handles adding a new comment when the user submits
+function submitComment() {
+    if (emailInput.value.trim() && commentInput.value.trim()) {
+        addMessage(commentInput.value, false);
+        commentInput.value = "";
+        document.getElementById("typingIndicator").style.display = "none";
+        localStorage.setItem("comment", "");
     }
 }
 
-document.addEventListener("DOMContentLoaded", loadChatData);
-
-// Handle adding a new text message
-document.getElementById("addComment").addEventListener("click", () => {
-    const email = emailInput.value.trim();
-    const comment = commentInput.value.trim();
-    if (email && comment) {
-        addMessage(comment, false);
-        commentInput.value = "";
-        localStorage.setItem("comment", ""); // Clear saved comment
-    }
-});
+// Toggles the visibility of a modal window
+function toggleModal(id, show) {
+    document.getElementById(id).style.display = show ? "block" : "none";
+}
